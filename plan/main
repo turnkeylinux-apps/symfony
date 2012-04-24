@@ -1,0 +1,7 @@
+#include <turnkey/base>
+#include <turnkey/lamp>
+
+php-pear
+php5-dev
+php5-xsl
+

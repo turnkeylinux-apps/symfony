@@ -1,0 +1,40 @@
+#!/bin/sh -ex
+
+NAME=symfony
+DB_PASS=$(mcookie)
+
+LOCAL_SRC=/usr/local/src
+
+# start mysql server
+/etc/init.d/mysql start
+
+# create symfony database and user
+mysql --user=root --password=$MYSQL_PASS --batch --execute "\
+CREATE DATABASE $NAME; \
+GRANT ALL PRIVILEGES ON $NAME.* TO $NAME@localhost IDENTIFIED BY '$DB_PASS'; \
+FLUSH PRIVILEGES;"
+
+# install and configure symfony
+pear channel-add $LOCAL_SRC/symfony-channel.xml
+pear install $LOCAL_SRC/symfony*.tgz
+
+mkdir -p /var/www/symfony
+cd /var/www/symfony
+symfony generate:project symfony
+symfony generate:app --escaping-strategy=on --csrf-secret=$(mcookie) frontend
+symfony configure:database "mysql:dbname=$NAME;host=localhost" $NAME $DB_PASS
+
+# patch welcome template
+DEST=/usr/share/php/symfony/controller/default/templates/indexSuccess.php
+cp $LOCAL_SRC/symfony-template-indexSuccess.php $DEST
+
+# configure apache
+a2dissite default
+a2ensite symfony
+a2enmod rewrite
+
+# stop mysql
+/etc/init.d/mysql stop
+
+# cleanup
+rm $LOCAL_SRC/symfony*

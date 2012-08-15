@@ -68,9 +68,33 @@ cat > $HTACCESS <<EOF
 </IfModule>
 EOF
 
+APPDEV=$WEBROOT/web/app_dev.php
+cat > $APPDEV <<EOF
+<?php
+// Uncomment the following and add your IP address for security
+/*
+if (!in_array(@\$_SERVER['REMOTE_ADDR'], array(
+    '127.0.0.1',
+    '::1',
+))) {
+    header('HTTP/1.0 403 Forbidden');
+    exit('You are not allowed to access this file. Check '.basename(__FILE__).' for more information.');
+}
+*/
+
+require_once __DIR__.'/../app/bootstrap.php.cache';
+require_once __DIR__.'/../app/AppKernel.php';
+
+use Symfony\Component\HttpFoundation\Request;
+
+\$kernel = new AppKernel('dev', true);
+\$kernel->loadClassCache();
+\$kernel->handle(Request::createFromGlobals())->send();
+EOF
+
 TEMPLATE=$WEBROOT/src/Acme/DemoBundle/Resources/views/Welcome/index.html.twig
 sed -i "s|<h1>\(.*\)</h1>|<h1>Welcome to TurnKey Symfony</h1>|" $TEMPLATE
-sed -i "s|<p>Congratulations\(.*\)</p>|<p>This welcome page is being served via <i>app_dev.php</i>.<br/>When ready for production, update <i>$HTACCESS</i> accordingly.</p><p><i>Note: The database configuration is already setup for you, enjoy!</i></p>|" $TEMPLATE
+sed -i "s|<p>Congratulations\(.*\)</p>|<p>This welcome page is being served via app_dev.php.<br/>You should secure it by specifying your IP address in <i>$APPDEV</i>.<br/>When ready for production, update <i>$HTACCESS</i> to specify app.php instead.</p><p><i>Note: The database configuration is already setup for you, enjoy!</i></p>|" $TEMPLATE
 
 # configure apache
 a2dissite default

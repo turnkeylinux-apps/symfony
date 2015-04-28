@@ -26,8 +26,9 @@ GRANT ALL PRIVILEGES ON $NAME.* TO $NAME@localhost IDENTIFIED BY '$DB_PASS'; \
 FLUSH PRIVILEGES;"
 
 # install and configure symfony
-tar -zxf /usr/local/src/Symfony*.tgz -C /var/www/
-mv /var/www/Symfony $WEBROOT
+mv /usr/local/src/installer /usr/local/bin/symfony
+chmod a+x /usr/local/bin/symfony
+symfony new /var/www/symfony 2.3
 chown root:root -R $WEBROOT
 
 cat > $WEBROOT/app/config/parameters.ini << EOF

@@ -2,11 +2,10 @@
 
 dl() {
     [ "$FAB_HTTP_PROXY" ] && PROXY="--proxy $FAB_HTTP_PROXY"
-    cd $2; curl -L -f -O $PROXY $1; cd -
+    cd $2; curl -LsS -f -O $PROXY $1 -o symfony; cd -
 }
 
-VERSION="2.2.0"
-URL="http://symfony.com/get/Symfony_Standard_Vendors_${VERSION}.tgz"
+#Installer
+URL="http://symfony.com/installer"
 
 dl $URL /usr/local/src
-

@@ -10,11 +10,18 @@ LOCAL_SRC=/usr/local/src
 PHPINI1=/etc/php5/apache2/php.ini
 PHPINI2=/etc/php5/cli/php.ini
 
+# Set timezone (TODO: we should move this to an inithook)
 sed -i "s|^;date.timezone\(.*\)|date.timezone = 'America/Los_Angeles'|" $PHPINI1
 sed -i "s|^;date.timezone\(.*\)|date.timezone = 'America/Los_Angeles'|" $PHPINI2
 
+# Set open tag to off for php
 sed -i "s|^short_open_tag = On|short_open_tag = Off|" $PHPINI1
 sed -i "s|^short_open_tag = On|short_open_tag = Off|" $PHPINI2
+
+# Up the memory from  32MB to 64MB (Issues with clear:cache command)
+sed -i "s|^memory_limit = 32M|memory_limit = 128M|" $PHPINI1
+sed -i "s|^memory_limit = 32M|memory_limit = 128M|" $PHPINI2
+
 
 # start mysql server
 /etc/init.d/mysql start
@@ -25,86 +32,190 @@ CREATE DATABASE $NAME; \
 GRANT ALL PRIVILEGES ON $NAME.* TO $NAME@localhost IDENTIFIED BY '$DB_PASS'; \
 FLUSH PRIVILEGES;"
 
-# install and configure symfony
-mv /usr/local/src/installer /usr/local/bin/symfony
-chmod a+x /usr/local/bin/symfony
-symfony new /var/www/symfony 2.3
+# install LTS 2.7 symfony
+symfony new /var/www/symfony 2.7
+
+# Change owner to root
 chown root:root -R $WEBROOT
 
-cat > $WEBROOT/app/config/parameters.ini << EOF
-[parameters]
-    database_driver   = pdo_mysql
-    database_host     = localhost
-    database_port     = 3036
-    database_name     = symfony
-    database_user     = $NAME
-    database_password = $DB_PASS
+# config database
+cat > $WEBROOT/app/config/parameters.yml <<EOF
+parameters:
+    database_driver:   pdo_mysql
+    database_host:     127.0.0.1
+    database_port:     ~
+    database_name:     symfony
+    database_user:     $NAME
+    database_password: $DB_PASS
 
-    mailer_transport  = smtp
-    mailer_host       = localhost
-    mailer_user       =
-    mailer_password   =
+    mailer_transport:  smtp
+    mailer_host:       127.0.0.1
+    mailer_user:       ~
+    mailer_password:   ~
 
-    locale            = en
-
-    secret            = $(mcookie)
+    secret:            $(mcookie)
 EOF
 
-# verify configuration
-cd $WEBROOT
-php app/check.php
 
-# tweak permissions
+# Set permissions so that cache and logs can be updated by apache2 user
 chown -R www-data:www-data $WEBROOT/app/cache
 chown -R www-data:www-data $WEBROOT/app/logs
 
-# setup app_dev as default, and update welcome page
+
+# update .htaccess -  setup app_dev as default
 HTACCESS=$WEBROOT/web/.htaccess
+
 cat > $HTACCESS <<EOF
+# This file has been changed to point to the app_dev.php front controller
+# to allow development. On a production server this should be changed back
+# to the default controller "app.php"
+#
+# To do this, edit this file and change all app_dev.php to app.php
+
+# Use the front controller as index file. It serves as a fallback solution when
+# every other rewrite/redirect fails (e.g. in an aliased environment without
+# mod_rewrite). Additionally, this reduces the matching process for the
+# start page (path "/") because otherwise Apache will apply the rewriting rules
+# to each configured DirectoryIndex file (e.g. index.php, index.html, index.pl).
+DirectoryIndex app_dev.php
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteCond %{REQUEST_FILENAME} !-f
-    # RewriteRule ^(.*)$ app.php [QSA,L]
-    RewriteRule ^(.*)$ app_dev.php [QSA,L]
+
+    # Determine the RewriteBase automatically and set it as environment variable.
+    # If you are using Apache aliases to do mass virtual hosting or installed the
+    # project in a subdirectory, the base path will be prepended to allow proper
+    # resolution of the app.php file and to redirect to the correct URI. It will
+    # work in environments without path prefix as well, providing a safe, one-size
+    # fits all solution. But as you do not need it in this case, you can comment
+    # the following 2 lines to eliminate the overhead.
+    
+    RewriteCond %{REQUEST_URI}::\$1 ^(/.+)/(.*)::\2$
+    RewriteRule ^(.*) - [E=BASE:%1]
+
+    # Redirect to URI without front controller to prevent duplicate content
+    # (with and without \`/app.php\`). Only do this redirect on the initial
+    # rewrite by Apache and not on subsequent cycles. Otherwise we would get an
+    # endless redirect loop (request -> rewrite to front controller ->
+    # redirect -> request -> ...).
+    # So in case you get a "too many redirects" error or you always get redirected
+    # to the start page because your Apache does not expose the REDIRECT_STATUS
+    # environment variable, you have 2 choices:
+    # - disable this feature by commenting the following 2 lines or
+    # - use Apache >= 2.3.9 and replace all L flags by END flags and remove the
+    #   following RewriteCond (best solution)
+    
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule ^app\.php(/(.*)|$) %{ENV:BASE}/\$2 [R=301,L]
+
+    # If the requested filename exists, simply serve it.
+    # We only want to let Apache serve files and not directories.
+    
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule .? - [L]
+
+    # Rewrite all other queries to the front controller.
+    
+    RewriteRule .? %{ENV:BASE}/app_dev.php [L]
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+    <IfModule mod_alias.c>
+        # When mod_rewrite is not available, we instruct a temporary redirect of
+        # the start page to the front controller explicitly so that the website
+        # and the generated links can still be used.
+        
+        RedirectMatch 302 ^/$ /app_dev.php/
+        
+        # RedirectTemp cannot be used instead
+    </IfModule>
 </IfModule>
 EOF
+
+
+
+# Update app_dev.php - Allow all requests for access for dev only
+# Needs so out of the box any IP can access the dev front controller
 
 APPDEV=$WEBROOT/web/app_dev.php
 cat > $APPDEV <<EOF
 <?php
-// Uncomment the following and add your IP address for security
+
+// This is the front controller used when executing the application in the
+// development environment ('dev'). See
+//
+//   * http://symfony.com/doc/current/cookbook/configuration/front_controllers_and_kernel.html
+//   * http://symfony.com/doc/current/cookbook/configuration/environments.html
+
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Debug\Debug;
+
+// If you don't want to setup permissions the proper way, just uncomment the
+// following PHP line. See:
+// http://symfony.com/doc/current/book/installation.html#configuration-and-setup for more information
+//umask(0000);
+
+// This check prevents access to debug front controllers that are deployed by
+// accident to production servers. Feel free to remove this, extend it, or make
+// something more sophisticated.
+
+// Uncomment this on a production server
 /*
-if (!in_array(@\$_SERVER['REMOTE_ADDR'], array(
-    '127.0.0.1',
-    '::1',
-))) {
+if (isset(\$_SERVER['HTTP_CLIENT_IP'])
+    || isset(\$_SERVER['HTTP_X_FORWARDED_FOR'])
+    || !(in_array(@\$_SERVER['REMOTE_ADDR'], array('127.0.0.1', 'fe80::1', '::1')) || php_sapi_name() === 'cli-server')
+) {
     header('HTTP/1.0 403 Forbidden');
     exit('You are not allowed to access this file. Check '.basename(__FILE__).' for more information.');
 }
 */
 
-require_once __DIR__.'/../app/bootstrap.php.cache';
-require_once __DIR__.'/../app/AppKernel.php';
+\$loader = require_once __DIR__.'/../app/bootstrap.php.cache';
+Debug::enable();
 
-use Symfony\Component\HttpFoundation\Request;
+require_once __DIR__.'/../app/AppKernel.php';
 
 \$kernel = new AppKernel('dev', true);
 \$kernel->loadClassCache();
-\$kernel->handle(Request::createFromGlobals())->send();
+\$request = Request::createFromGlobals();
+\$response = \$kernel->handle(\$request);
+\$response->send();
+\$kernel->terminate(\$request, \$response);
 EOF
 
-TEMPLATE=$WEBROOT/src/Acme/DemoBundle/Resources/views/Welcome/index.html.twig
+
+
+# Update default twig template (Give it a TKL Branding)
+TEMPLATE=$WEBROOT/app/Resources/views/default/index.html.twig
+
+# update welcome template, part 1 - Welcome
+# Adds TurnKey Linux to the welcome
 sed -i "s|<h1>\(.*\)</h1>|<h1>Welcome to TurnKey Symfony</h1>|" $TEMPLATE
-sed -i "s|<p>Congratulations\(.*\)</p>|<p>This welcome page is being served via app_dev.php.<br/>You should secure it by specifying your IP address in <i>$APPDEV</i>.<br/>When ready for production, update <i>$HTACCESS</i> to specify app.php instead.</p><p><i>Note: The database configuration is already setup for you, enjoy!</i></p>|" $TEMPLATE
+
+# update welcome template, part 2 - Whats next
+# Use SED to find the whats next text inside the twig file
+# then we insert multi line html into it
+sed -i "s|<h2>What's next?</h2>| \n\
+                <h2>What do I do now?</h2>\n\
+                        <p>This welcome page is being served via app_dev.php.</p> \n\
+                        <p>You should secure it by specifying your IP address in <i>$APPDEV</i></p> \n\
+                        <p>When ready for production, update <i>$HTACCESS</i> to specify app.php instead.</p> \n\
+                        <p><i>Note: The database configuration is already setup for you, enjoy!</i></p> \n\
+|" $TEMPLATE
+
+
+# Run symfony configuration checker
+cd $WEBROOT
+php app/check.php
+
+
 
 # configure apache
 a2dissite 000-default
 a2ensite symfony
 a2enmod rewrite
 
+
 # stop mysql
 /etc/init.d/mysql stop
-
-# cleanup
-rm -f $LOCAL_SRC/Symfony*
 

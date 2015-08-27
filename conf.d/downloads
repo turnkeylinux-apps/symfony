@@ -5,7 +5,10 @@ dl() {
     cd $2; curl -LsS -f -O $PROXY $1 -o symfony; cd -
 }
 
-#Installer
+# Download symfony installer
 URL="http://symfony.com/installer"
 
 dl $URL /usr/local/src
+
+mv /usr/local/src/installer /usr/local/bin/symfony
+chmod a+x /usr/local/bin/symfony

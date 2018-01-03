@@ -7,8 +7,8 @@ WEBROOT=/var/www/symfony
 LOCAL_SRC=/usr/local/src
 
 # php tweaks
-PHPINI1=/etc/php5/apache2/php.ini
-PHPINI2=/etc/php5/cli/php.ini
+PHPINI1=/etc/php/7.0/apache2/php.ini
+PHPINI2=/etc/php/7.0/cli/php.ini
 
 # Set timezone (TODO: we should move this to an inithook)
 sed -i "s|^;date.timezone\(.*\)|date.timezone = 'America/Los_Angeles'|" $PHPINI1
@@ -24,7 +24,7 @@ sed -i "s|^memory_limit = 32M|memory_limit = 128M|" $PHPINI2
 
 
 # start mysql server
-/etc/init.d/mysql start
+service mysql start
 
 # create symfony database and user
 mysql --user=root --password=$MYSQL_PASS --batch --execute "\
@@ -32,8 +32,8 @@ CREATE DATABASE $NAME; \
 GRANT ALL PRIVILEGES ON $NAME.* TO $NAME@localhost IDENTIFIED BY '$DB_PASS'; \
 FLUSH PRIVILEGES;"
 
-# install LTS 2.7 symfony
-symfony new /var/www/symfony 2.7
+# install 3.4.1 LTS symfony
+symfony new /var/www/symfony 3.4.1
 
 # Change owner to root
 chown root:root -R $WEBROOT
@@ -58,9 +58,7 @@ EOF
 
 
 # Set permissions so that cache and logs can be updated by apache2 user
-chown -R www-data:www-data $WEBROOT/app/cache
-chown -R www-data:www-data $WEBROOT/app/logs
-
+chown -R www-data:www-data $WEBROOT/var
 
 # update .htaccess -  setup app_dev as default
 HTACCESS=$WEBROOT/web/.htaccess
@@ -138,51 +136,9 @@ EOF
 # Needs so out of the box any IP can access the dev front controller
 
 APPDEV=$WEBROOT/web/app_dev.php
-cat > $APPDEV <<EOF
-<?php
 
-// This is the front controller used when executing the application in the
-// development environment ('dev'). See
-//
-//   * http://symfony.com/doc/current/cookbook/configuration/front_controllers_and_kernel.html
-//   * http://symfony.com/doc/current/cookbook/configuration/environments.html
-
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Debug\Debug;
-
-// If you don't want to setup permissions the proper way, just uncomment the
-// following PHP line. See:
-// http://symfony.com/doc/current/book/installation.html#configuration-and-setup for more information
-//umask(0000);
-
-// This check prevents access to debug front controllers that are deployed by
-// accident to production servers. Feel free to remove this, extend it, or make
-// something more sophisticated.
-
-// Uncomment this on a production server
-/*
-if (isset(\$_SERVER['HTTP_CLIENT_IP'])
-    || isset(\$_SERVER['HTTP_X_FORWARDED_FOR'])
-    || !(in_array(@\$_SERVER['REMOTE_ADDR'], array('127.0.0.1', 'fe80::1', '::1')) || php_sapi_name() === 'cli-server')
-) {
-    header('HTTP/1.0 403 Forbidden');
-    exit('You are not allowed to access this file. Check '.basename(__FILE__).' for more information.');
-}
-*/
-
-\$loader = require_once __DIR__.'/../app/bootstrap.php.cache';
-Debug::enable();
-
-require_once __DIR__.'/../app/AppKernel.php';
-
-\$kernel = new AppKernel('dev', true);
-\$kernel->loadClassCache();
-\$request = Request::createFromGlobals();
-\$response = \$kernel->handle(\$request);
-\$response->send();
-\$kernel->terminate(\$request, \$response);
-EOF
-
+sed -i "s|header('HTTP/1.0 403 Forbidden');|#header('HTTP/1.0 403 Forbidden');|" $APPDEV
+sed -i "s|exit('You are not allowed to access this file. Check '.basename(__FILE__).' for more information.');|#exit('You are not allowed to access this file. Check '.basename(__FILE__).' for more information.');|" $APPDEV 
 
 
 # Update default twig template (Give it a TKL Branding)
@@ -204,11 +160,6 @@ sed -i "s|<h2>What's next?</h2>| \n\
 |" $TEMPLATE
 
 
-# Run symfony configuration checker
-cd $WEBROOT
-php app/check.php
-
-
 
 # configure apache
 a2dissite 000-default
@@ -217,5 +168,5 @@ a2enmod rewrite
 
 
 # stop mysql
-/etc/init.d/mysql stop
+service mysql stop
 

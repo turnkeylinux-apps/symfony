@@ -32,8 +32,8 @@ CREATE DATABASE $NAME; \
 GRANT ALL PRIVILEGES ON $NAME.* TO $NAME@localhost IDENTIFIED BY '$DB_PASS'; \
 FLUSH PRIVILEGES;"
 
-# install 3.4.1 LTS symfony
-symfony new /var/www/symfony 3.4.1
+# install 3.4.x LTS symfony
+symfony new /var/www/symfony 3.4
 
 # Change owner to root
 chown root:root -R $WEBROOT

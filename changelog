@@ -1,3 +1,12 @@
+turnkey-symfony-15.1 (1) turnkey; urgency=low
+
+  * Latest upstream version of Symfony LTS (v3.4.18) installed.
+
+  * Rebuild to resolve inadvertent removal of mariadb during sec-updates
+    - part of #1246.
+
+ -- Jeremy Davis <jeremy@turnkeylinux.org>  Thu, 22 Nov 2018 15:08:11 +1100
+
 turnkey-symfony-15.0 (1) turnkey; urgency=low
 
   * Latest upstream version of Symfony LTS (v3.4.1) installed

@@ -5,6 +5,5 @@ php-pear
 php-dev
 php-xsl
 php-mbstring
-php-mcrypt
 php-intl               /* symfony dep */
 

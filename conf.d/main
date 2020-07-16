@@ -7,8 +7,8 @@ WEBROOT=/var/www/symfony
 LOCAL_SRC=/usr/local/src
 
 # php tweaks
-PHPINI1=/etc/php/7.0/apache2/php.ini
-PHPINI2=/etc/php/7.0/cli/php.ini
+PHPINI1=/etc/php/7.3/apache2/php.ini
+PHPINI2=/etc/php/7.3/cli/php.ini
 
 # Set timezone (TODO: we should move this to an inithook)
 sed -i "s|^;date.timezone\(.*\)|date.timezone = 'America/Los_Angeles'|" $PHPINI1

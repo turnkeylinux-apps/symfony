@@ -6,4 +6,5 @@ php-dev
 php-xsl
 php-mbstring
 php-intl               /* symfony dep */
-
+php-simplexml
+php-curl

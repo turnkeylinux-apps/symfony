@@ -1,3 +1,12 @@
+turnkey-symfony-16.1 (1) turnkey; urgency=low
+
+  * Update Symfony to new LTS - v4.4.x - this release includes v4.4.19.
+
+  * Note: Please refer to turnkey-core's 16.1 changelog for changes common to
+    all appliances. Here we only describe changes specific to this appliance.
+
+ -- Jeremy Davis <jeremy@turnkeylinux.org>  Wed, 24 Feb 2021 17:23:26 +1100
+
 turnkey-symfony-16.0 (1) turnkey; urgency=low
 
   * Latest upstream version of Symfony LTS (v3.4.42) installed.

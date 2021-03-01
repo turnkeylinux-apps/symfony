@@ -73,5 +73,3 @@ rm /usr/local/src/welcome.patch
 
 # stop mysql
 service mysql stop
-
-exit 1

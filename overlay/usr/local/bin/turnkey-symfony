@@ -1,0 +1,9 @@
+#!/bin/bash -e
+
+[[ -z "$DEBUG" ]] || set -x
+
+SYMFONY_USR=${SYMFONY_USR:-www-data}
+
+COMMAND="symfony $@"
+
+runuser $SYMFONY_USR -s /bin/bash -c "$COMMAND"

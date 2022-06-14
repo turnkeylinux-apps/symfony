@@ -8,7 +8,7 @@ SRC=/usr/local/src
 BIN=/usr/local/bin
 
 # php tweaks
-PHP_INI="/etc/php/7.3/apache2/php.ini /etc/php/7.3/cli/php.ini"
+PHP_INI="/etc/php/7.4/apache2/php.ini /etc/php/7.4/cli/php.ini"
 for php_ini in $PHP_INI; do
     # Set timezone (TODO: we should move this to an inithook)
     sed -i "s|^;date.timezone\(.*\)|date.timezone = 'America/Los_Angeles'|" $php_ini
@@ -33,6 +33,9 @@ export COMPOSER_NO_INTERACTION=1
 turnkey-composer require symfony/apache-pack
 turnkey-composer require symfony/orm-pack
 turnkey-composer require --dev symfony/maker-bundle
+
+apt update
+apt install symfony-cli
 
 # for some reason, the symfony/apache-pack doesn't install when run
 # non-interactively, so we'll manually download the .htaccess file
@@ -60,6 +63,7 @@ sed -i "\|^DATABASE_URL|s|=.*|=\"$MYSQL_STR\"|" $WEBROOT/.env
 a2dissite 000-default
 a2ensite symfony
 a2enmod rewrite
+a2enmod headers
 
 # Change owner to root
 chown root:root -R $WEBROOT
@@ -67,7 +71,7 @@ chown root:root -R $WEBROOT
 # Set permissions so that cache and logs can be updated by apache2 user
 chown -R www-data:www-data $WEBROOT/var
 
-# apply TUrnKey branding to welcome page
+# apply TurnKey branding to welcome page
 git apply /usr/local/src/welcome.patch
 rm /usr/local/src/welcome.patch
 

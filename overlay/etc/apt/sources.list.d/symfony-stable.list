@@ -1,0 +1,7 @@
+# Source: Symfony
+# Site: https://github.com/symfony-cli/symfony-cli
+# Repository: Symfony / Symfony CLI
+# Description: The Symfony CLI tool
+
+deb [signed-by=/usr/share/keyrings/symfony-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/symfony/stable/deb/debian bullseye main
+#deb-src [signed-by=/usr/share/keyrings/symfony-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/symfony/stable/deb/debian bullseye main

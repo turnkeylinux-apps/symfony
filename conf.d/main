@@ -6,7 +6,7 @@ DB_PASS=$(mcookie)
 WEBROOT=/var/www/symfony
 
 # php tweaks
-PHP_INI="/etc/php/7.4/apache2/php.ini /etc/php/7.4/cli/php.ini"
+PHP_INI="/etc/php/8.2/apache2/php.ini /etc/php/8.2/cli/php.ini"
 for php_ini in $PHP_INI; do
     # Set timezone (TODO: we should move this to an inithook)
     sed -i "s|^;date.timezone\(.*\)|date.timezone = 'America/Los_Angeles'|" $php_ini

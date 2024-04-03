@@ -6,16 +6,13 @@ DB_PASS=$(mcookie)
 WEBROOT=/var/www/symfony
 
 # php tweaks
-PHP_INI="/etc/php/8.2/apache2/php.ini /etc/php/8.2/cli/php.ini"
+PHP_INI="/etc/php/?.?/apache2/php.ini /etc/php/?.?/cli/php.ini"
 for php_ini in $PHP_INI; do
     # Set timezone (TODO: we should move this to an inithook)
     sed -i "s|^;date.timezone\(.*\)|date.timezone = 'America/Los_Angeles'|" $php_ini
 
     # Set open tag to off for php
     sed -i "s|^short_open_tag = On|short_open_tag = Off|" $php_ini
-
-    # Up the memory from  32MB to 64MB (Issues with clear:cache command)
-    sed -i "s|^memory_limit = 32M|memory_limit = 128M|" $php_ini
 done
 
 apt update

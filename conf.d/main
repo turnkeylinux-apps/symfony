@@ -1,4 +1,4 @@
-#!/bin/sh -ex
+#!/bin/bash -ex
 
 NAME=symfony
 DB_PASS=$(mcookie)
@@ -40,8 +40,8 @@ curl -o $HTACCESS -L $RAW_BIT/$PART_URL/$HTACCESS
 service mysql start
 
 # create symfony database & user
+mysqladmin create $NAME
 mysql --batch --execute "\
-    CREATE DATABASE $NAME; \
     GRANT ALL PRIVILEGES ON $NAME.* TO $NAME@localhost IDENTIFIED BY '$DB_PASS'; \
     FLUSH PRIVILEGES;"
 
@@ -55,13 +55,12 @@ a2ensite symfony
 a2enmod rewrite
 a2enmod headers
 
-# Change owner to root
-chown root:root -R $WEBROOT
-
-# Set permissions so that cache and logs can be updated by apache2 user
+# Give ownership of webroot to root but webserver ownership of var
+chown -R root:root $WEBROOT
 chown -R www-data:www-data $WEBROOT/var
 
 # apply TurnKey branding to welcome page
+cd WEBROOT
 git apply /usr/local/src/welcome.patch
 rm /usr/local/src/welcome.patch
 

@@ -60,7 +60,7 @@ chown -R root:root $WEBROOT
 chown -R www-data:www-data $WEBROOT/var
 
 # apply TurnKey branding to welcome page
-cd WEBROOT
+cd $WEBROOT
 git apply /usr/local/src/welcome.patch
 rm /usr/local/src/welcome.patch
 

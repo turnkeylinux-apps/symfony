@@ -23,9 +23,9 @@ symfony new $WEBROOT --version=lts --no-git
 chown -R www-data:www-data $WEBROOT
 cd $WEBROOT
 export COMPOSER_NO_INTERACTION=1
-turnkey-composer require symfony/apache-pack
-turnkey-composer require symfony/orm-pack
-turnkey-composer require --dev symfony/maker-bundle
+composer require symfony/apache-pack
+composer require symfony/orm-pack
+composer require --dev symfony/maker-bundle
 
 # for some reason, the symfony/apache-pack doesn't install when run
 # non-interactively, so we'll manually download the .htaccess file

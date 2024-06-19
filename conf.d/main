@@ -23,6 +23,7 @@ symfony new $WEBROOT --version=lts --no-git
 chown -R www-data:www-data $WEBROOT
 cd $WEBROOT
 export COMPOSER_NO_INTERACTION=1
+export COMPOSER_ALLOW_SUPERUSER=1
 composer require symfony/apache-pack
 composer require symfony/orm-pack
 composer require --dev symfony/maker-bundle

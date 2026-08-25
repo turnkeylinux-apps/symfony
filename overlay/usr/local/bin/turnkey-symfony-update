@@ -1,0 +1,150 @@
+#!/bin/bash -e
+
+APP_ROOT=/var/www/symfony
+SOURCE_FILE=/usr/local/share/turnkey-symfony/source
+RELEASE_URL=https://symfony.com/releases/7.4.json
+FRAMEWORK_REMOTE=https://github.com/symfony/framework-bundle.git
+
+usage() {
+    echo "usage: turnkey-symfony-update --check | --apply [--dry-run]" >&2
+    exit 2
+}
+
+[[ $# -ge 1 && $# -le 2 ]] || usage
+mode=$1
+dry_run=false
+case "$mode" in
+    --check)
+        [[ $# -eq 1 ]] || usage
+        ;;
+    --apply)
+        if [[ $# -eq 2 ]]; then
+            [[ $2 = --dry-run ]] || usage
+            dry_run=true
+        fi
+        ;;
+    *)
+        usage
+        ;;
+esac
+
+[[ -r $APP_ROOT/composer.lock && -r $SOURCE_FILE ]] || {
+    echo "Symfony installation provenance is unavailable" >&2
+    exit 1
+}
+
+installed_version=$(
+    cd "$APP_ROOT"
+    php -r 'require "vendor/autoload.php"; echo Symfony\Component\HttpKernel\Kernel::VERSION;'
+)
+installed_commit=$(
+    php -r '
+        $lock = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+        foreach ($lock["packages"] as $package) {
+            if ($package["name"] === "symfony/framework-bundle") {
+                echo $package["source"]["reference"];
+                exit;
+            }
+        }
+        exit(1);
+    ' "$APP_ROOT/composer.lock"
+)
+
+. "$SOURCE_FILE"
+[[ $framework_version = "$installed_version" ]] || {
+    echo "Installed Symfony version does not match its source record" >&2
+    exit 1
+}
+[[ $framework_commit = "$installed_commit" ]] || {
+    echo "Installed FrameworkBundle commit does not match its source record" >&2
+    exit 1
+}
+
+release_json=$(curl -fsSL "$RELEASE_URL")
+latest_version=$(php -r '
+    $release = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+    echo $release["latest_patch_version"] ?? "";
+' <<<"$release_json")
+[[ $latest_version =~ ^7\.4\.[0-9]+$ ]] || {
+    echo "Symfony release metadata returned an invalid LTS patch" >&2
+    exit 1
+}
+
+latest_commit=$(git ls-remote "$FRAMEWORK_REMOTE" \
+    "refs/tags/v$latest_version^{}" | awk 'NR == 1 { print $1 }')
+if [[ -z $latest_commit ]]; then
+    latest_commit=$(git ls-remote "$FRAMEWORK_REMOTE" \
+        "refs/tags/v$latest_version" | awk 'NR == 1 { print $1 }')
+fi
+[[ $latest_commit =~ ^[0-9a-f]{40}$ ]] || {
+    echo "The official FrameworkBundle tag could not be resolved" >&2
+    exit 1
+}
+
+status=update-available
+[[ $installed_version = "$latest_version" && $installed_commit = "$latest_commit" ]] \
+    && status=up-to-date
+
+if [[ $mode = --check ]]; then
+    printf 'installed=%s\ninstalled_commit=%s\nlatest=%s\n' \
+        "$installed_version" "$installed_commit" "$latest_version"
+    printf 'candidate=%s\ntag=v%s\nchannel=official-7.4-lts\nstatus=%s\n' \
+        "$latest_commit" "$latest_version" "$status"
+    exit 0
+fi
+
+if $dry_run; then
+    printf 'mode=apply-dry-run\ntarget=%s\ncandidate=%s\n' \
+        "$latest_version" "$latest_commit"
+    printf 'tag=v%s\nverified=official-framework-bundle-tag\nstatus=%s\n' \
+        "$latest_version" "$status"
+    exit 0
+fi
+
+[[ $EUID -eq 0 ]] || {
+    echo "--apply must run as root" >&2
+    exit 1
+}
+
+if [[ $status = up-to-date ]]; then
+    echo "Symfony $installed_version is already current"
+    exit 0
+fi
+
+cd "$APP_ROOT"
+export COMPOSER_ALLOW_SUPERUSER=1
+export COMPOSER_NO_INTERACTION=1
+composer require --no-ansi --no-progress --prefer-dist --with-all-dependencies \
+    "symfony/framework-bundle:$latest_version"
+composer install --no-ansi --no-progress --prefer-dist --no-dev --optimize-autoloader
+
+updated_version=$(php -r \
+    'require "vendor/autoload.php"; echo Symfony\Component\HttpKernel\Kernel::VERSION;')
+updated_commit=$(php -r '
+    $lock = json_decode(file_get_contents("composer.lock"), true, 512, JSON_THROW_ON_ERROR);
+    foreach ($lock["packages"] as $package) {
+        if ($package["name"] === "symfony/framework-bundle") {
+            echo $package["source"]["reference"];
+            exit;
+        }
+    }
+    exit(1);
+')
+[[ $updated_version = "$latest_version" && $updated_commit = "$latest_commit" ]] || {
+    echo "Composer did not install the verified Symfony release" >&2
+    exit 1
+}
+
+source_tmp=$(mktemp)
+sed -e "s/^framework_version=.*/framework_version=$latest_version/" \
+    -e "s/^framework_commit=.*/framework_commit=$latest_commit/" \
+    -e "s/^framework_tag=.*/framework_tag=v$latest_version/" \
+    -e "s/^composer_lock_sha256=.*/composer_lock_sha256=$(sha256sum composer.lock | awk '{print $1}')/" \
+    "$SOURCE_FILE" > "$source_tmp"
+chmod 0644 "$source_tmp"
+mv "$source_tmp" "$SOURCE_FILE"
+chown -R root:root "$APP_ROOT"
+chown -R www-data:www-data "$APP_ROOT/var"
+runuser -u www-data -- php bin/console cache:clear --env=prod --no-debug
+printf 'updated=%s\ncommit=%s\ntag=v%s\n' \
+    "$latest_version" "$latest_commit" "$latest_version"

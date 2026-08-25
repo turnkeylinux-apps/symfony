@@ -3,7 +3,7 @@
 [[ -z "$DEBUG" ]] || set -x
 
 SYMFONY_USR=${SYMFONY_USR:-www-data}
+WEBROOT=/var/www/symfony
 
-COMMAND="symfony $@"
-
-runuser $SYMFONY_USR -s /bin/bash -c "$COMMAND"
+cd "$WEBROOT"
+exec runuser -u "$SYMFONY_USR" -- /usr/bin/php bin/console "$@"

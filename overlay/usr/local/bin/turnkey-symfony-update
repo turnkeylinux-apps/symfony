@@ -145,6 +145,7 @@ chmod 0644 "$source_tmp"
 mv "$source_tmp" "$SOURCE_FILE"
 chown -R root:root "$APP_ROOT"
 chown -R www-data:www-data "$APP_ROOT/var"
+chown root:www-data "$APP_ROOT/.env.local"
 runuser -u www-data -- php bin/console cache:clear --env=prod --no-debug
 printf 'updated=%s\ncommit=%s\ntag=v%s\n' \
     "$latest_version" "$latest_commit" "$latest_version"

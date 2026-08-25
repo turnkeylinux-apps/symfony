@@ -30,6 +30,7 @@ export COMPOSER_NO_INTERACTION=1
 composer install --no-ansi --no-progress --prefer-dist
 composer require --no-ansi --no-progress --prefer-dist --with-all-dependencies \
     "symfony/framework-bundle:$FRAMEWORK_VERSION" symfony/orm-pack
+sed -i '/^[[:space:]]*server_version:/d' config/packages/doctrine.yaml
 
 installed_version=$(php -r \
     'require "vendor/autoload.php"; echo Symfony\Component\HttpKernel\Kernel::VERSION;')
@@ -98,6 +99,7 @@ a2enmod headers
 
 chown -R root:root "$WEBROOT"
 chown -R www-data:www-data "$WEBROOT/var"
+chown root:www-data "$WEBROOT/.env.local"
 runuser -u www-data -- php bin/console cache:clear --env=prod --no-debug
 
 service mysql stop

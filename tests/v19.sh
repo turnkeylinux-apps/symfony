@@ -44,6 +44,8 @@ lock_commit=$(php -r '
 [[ $lock_commit = "$framework_commit" ]] || fail "Composer lock differs from provenance"
 [[ $(sha256sum "$APP_ROOT/composer.lock" | awk '{print $1}') = "$composer_lock_sha256" ]] \
     || fail "Composer lock digest differs from provenance"
+[[ $(stat -c '%U:%G:%a' "$APP_ROOT/.env.local") = root:www-data:640 ]] \
+    || fail "Symfony credential file permissions are incorrect"
 
 console_output=$(turnkey-symfony about --env=prod --no-debug --no-ansi)
 require_contains "$console_output" "Version" "Symfony console"

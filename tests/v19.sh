@@ -93,10 +93,11 @@ echo "PASS: sample app, MariaDB, Symfony console, Apache, provenance, and update
 echo "framework=$framework_version framework_commit=$framework_commit"
 echo "updater_target=$latest updater_candidate=$candidate"
 cat > /run/tkl-v19-tests/result.txt <<EOF
-verdict=PASS
-product=symfony
-framework=$framework_version
-framework_commit=$framework_commit
-updater_target=$latest
-updater_candidate=$candidate
+package_source=official Symfony skeleton v$skeleton_version at $skeleton_commit
+installed_version=Symfony $framework_version, FrameworkBundle $framework_commit
+runtime_checks=sample app, MariaDB, Symfony console, Apache, and provenance passed
+updater_command=turnkey-symfony-update --check; turnkey-symfony-update --apply --dry-run
+updater_result=target v$latest at verified FrameworkBundle commit $candidate
+updater_channel=official Symfony 7.4 LTS
+integrity_evidence=skeleton SHA256 $skeleton_sha256; Composer lock SHA256 $composer_lock_sha256
 EOF

@@ -17,6 +17,8 @@ require_contains() {
 }
 
 [[ -r $SOURCE_FILE ]] || fail "source provenance record is missing"
+[[ -x /usr/local/bin/turnkey-symfony ]] || fail "Symfony console helper is not executable"
+[[ -x /usr/local/bin/turnkey-symfony-update ]] || fail "Symfony updater is not executable"
 . "$SOURCE_FILE"
 
 [[ $skeleton_version = 7.4.99 ]] || fail "unexpected skeleton version"

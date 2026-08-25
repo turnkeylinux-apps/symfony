@@ -92,3 +92,11 @@ require_contains "$apply_plan" "verified=official-framework-bundle-tag" "updater
 echo "PASS: sample app, MariaDB, Symfony console, Apache, provenance, and updater"
 echo "framework=$framework_version framework_commit=$framework_commit"
 echo "updater_target=$latest updater_candidate=$candidate"
+cat > /run/tkl-v19-tests/result.txt <<EOF
+verdict=PASS
+product=symfony
+framework=$framework_version
+framework_commit=$framework_commit
+updater_target=$latest
+updater_candidate=$candidate
+EOF

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+: "${TKL_TEST_RESULT:?TKL_TEST_RESULT must name the result file}"
+
 APP_ROOT=/var/www/symfony
 SOURCE_FILE=/usr/local/share/turnkey-symfony/source
 
@@ -73,6 +75,13 @@ require_contains "$page" "TurnKey Symfony" "sample application"
 require_contains "$page" "Symfony ${framework_version} LTS sample application" "sample application"
 require_contains "$page" "Database connectivity verified" "sample application DB query"
 
+secure_page=$(curl --insecure -fsSL --max-time 20 https://127.0.0.1/)
+require_contains "$secure_page" "TurnKey Symfony" "HTTPS sample application"
+require_contains "$secure_page" \
+    "Symfony ${framework_version} LTS sample application" "HTTPS sample application"
+require_contains "$secure_page" \
+    "Database connectivity verified" "HTTPS sample application DB query"
+
 check_output=$(turnkey-symfony-update --check)
 latest=$(awk -F= '$1 == "latest" { print $2 }' <<<"$check_output")
 candidate=$(awk -F= '$1 == "candidate" { print $2 }' <<<"$check_output")
@@ -92,7 +101,7 @@ require_contains "$apply_plan" "verified=official-framework-bundle-tag" "updater
 echo "PASS: sample app, MariaDB, Symfony console, Apache, provenance, and updater"
 echo "framework=$framework_version framework_commit=$framework_commit"
 echo "updater_target=$latest updater_candidate=$candidate"
-cat > /run/tkl-v19-tests/result.txt <<EOF
+cat > "$TKL_TEST_RESULT" <<EOF
 package_source=official Symfony skeleton v$skeleton_version at $skeleton_commit
 installed_version=Symfony $framework_version, FrameworkBundle $framework_commit
 runtime_checks=sample app, MariaDB, Symfony console, Apache, and provenance passed

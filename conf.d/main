@@ -32,7 +32,7 @@ composer require --no-ansi --no-progress --prefer-dist --with-all-dependencies \
     "symfony/framework-bundle:$FRAMEWORK_VERSION" symfony/orm-pack
 
 installed_version=$(php -r \
-    'require "vendor/autoload.php"; echo Symfony\\Component\\HttpKernel\\Kernel::VERSION;')
+    'require "vendor/autoload.php"; echo Symfony\Component\HttpKernel\Kernel::VERSION;')
 installed_commit=$(php -r '
     $lock = json_decode(file_get_contents("composer.lock"), true, 512, JSON_THROW_ON_ERROR);
     foreach ($lock["packages"] as $package) {

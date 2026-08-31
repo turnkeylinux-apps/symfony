@@ -9,13 +9,15 @@ faster by minimizing repetitive coding tasks.
 This appliance includes all the standard features in `TurnKey Core`_,
 and on top of that:
 
-- Symfony v3.4 LTS configurations:
+- Symfony v7.4 LTS configuration:
    
    - Installed from upstream source code to /var/www/symfony
-   - Preconfigured new project and frontend application.
-   - Enabled Symfony app security out of the box (XSS an CSRF).
-   - Includes PHP XSLT support (required for database access).
-   - Symfony Demo Application installed at /var/www/symfony_demo
+   - Pinned official skeleton and FrameworkBundle release provenance.
+   - Preconfigured sample application with MariaDB connectivity.
+   - Apache serves the public front controller over HTTP and HTTPS.
+   - ``turnkey-symfony`` runs the framework console as the web user.
+   - ``turnkey-symfony-update`` checks and applies supervised LTS patch
+     updates from verified official FrameworkBundle tags.
 
    **Security note**: Updates to Symfony may require supervision so
    they **ARE NOT** configured to install automatically. See the
@@ -28,10 +30,6 @@ and on top of that:
   (e.g., password recovery).
 - Webmin modules for configuring Apache2, PHP, MySQL and Postfix.
 
-To receive notifications of Symfony security updates, we recommend
-that you sign up for a free `SensioLabs account`_ and enable Symfony
-`security notifications`_.
-
 Credentials *(passwords set at first boot)*
 -------------------------------------------
 
@@ -43,5 +41,3 @@ Credentials *(passwords set at first boot)*
 .. _Adminer: https://www.adminer.org/
 .. _minor: https://symfony.com/doc/current/setup/upgrade_minor.html
 .. _major: https://symfony.com/doc/current/setup/upgrade_major.html
-.. _SensioLabs account: https://connect.sensiolabs.com/login
-.. _security notifications: https://symfony.com/account/notifications

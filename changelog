@@ -1,3 +1,20 @@
+turnkey-symfony-19.0 (1) turnkey; urgency=low
+
+  * Rebase the appliance on Debian 13/Trixie.
+
+  * Install the official Symfony 7.4 LTS skeleton and pin FrameworkBundle
+    v7.4.17 with verified source provenance.
+
+  * Replace the vendor welcome patch with a small sample application that
+    exercises framework routing and MariaDB through Doctrine DBAL.
+
+  * Remove the third-party Symfony CLI repository. Use Debian Composer and
+    provide safe framework console and supervised LTS updater helpers.
+
+  * Keep generated database credentials outside build tracing.
+
+ -- TurnKey Linux Developers <admin@turnkeylinux.org>  Tue, 25 Aug 2026 00:00:00 +0000
+
 turnkey-symfony-18.0 (1) turnkey; urgency=low
 
   * Update Symfony to new LTS - v6.4.x - this release includes v6.4.9.

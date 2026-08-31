@@ -1,69 +1,105 @@
-#!/bin/bash -ex
+#!/bin/bash -e
+
+set -x
 
 NAME=symfony
-DB_PASS=$(mcookie)
-
 WEBROOT=/var/www/symfony
+SKELETON_VERSION=7.4.99
+SKELETON_COMMIT=bf1abda299403468285fd4fa0514d916991c9120
+SKELETON_SHA256=9dae378ef8e120b2763dd4879c9bb6ecae44592b3be156f3e130c72cc05a266d
+FRAMEWORK_VERSION=7.4.17
+FRAMEWORK_COMMIT=c7f3c14c51fccba466761e8c0e7dafe4335acc16
+SKELETON_URL="https://github.com/symfony/skeleton/archive/$SKELETON_COMMIT.tar.gz"
 
-# php tweaks
 PHP_INI="/etc/php/?.?/apache2/php.ini /etc/php/?.?/cli/php.ini"
 for php_ini in $PHP_INI; do
-    # Set timezone (TODO: we should move this to an inithook)
-    sed -i "s|^;date.timezone\(.*\)|date.timezone = 'America/Los_Angeles'|" $php_ini
-
-    # Set open tag to off for php
-    sed -i "s|^short_open_tag = On|short_open_tag = Off|" $php_ini
+    sed -i "s|^;date.timezone\(.*\)|date.timezone = 'America/Los_Angeles'|" "$php_ini"
+    sed -i "s|^short_open_tag = On|short_open_tag = Off|" "$php_ini"
 done
 
-apt update
-apt install symfony-cli
+archive=$(mktemp)
+curl -fsSL "$SKELETON_URL" -o "$archive"
+echo "$SKELETON_SHA256  $archive" | sha256sum --check --status
+install -d "$WEBROOT"
+tar -xzf "$archive" --strip-components=1 -C "$WEBROOT"
+rm -f "$archive"
 
-# install LTS symfony - currently v4.4.x + a few useful modules
-symfony new $WEBROOT --version=lts --no-git
-chown -R www-data:www-data $WEBROOT
-cd $WEBROOT
-export COMPOSER_NO_INTERACTION=1
+cd "$WEBROOT"
 export COMPOSER_ALLOW_SUPERUSER=1
-composer require symfony/apache-pack
-composer require symfony/orm-pack
-composer require --dev symfony/maker-bundle
+export COMPOSER_NO_INTERACTION=1
+composer install --no-ansi --no-progress --prefer-dist
+composer require --no-ansi --no-progress --prefer-dist --with-all-dependencies \
+    "symfony/framework-bundle:$FRAMEWORK_VERSION" symfony/orm-pack
+sed -i '/^[[:space:]]*server_version:/d' config/packages/doctrine.yaml
 
-# for some reason, the symfony/apache-pack doesn't install when run
-# non-interactively, so we'll manually download the .htaccess file
-HTACCESS=public/.htaccess
-GH_BIT="https://github.com/symfony/recipes-contrib/tree/"
-RAW_BIT="https://raw.githubusercontent.com/symfony/recipes-contrib"
-PART_URL=$(turnkey-composer recipes symfony/apache-pack \
-    | grep ^installed | sed "s|^.*$GH_BIT||")
-curl -o $HTACCESS -L $RAW_BIT/$PART_URL/$HTACCESS
+installed_version=$(php -r \
+    'require "vendor/autoload.php"; echo Symfony\Component\HttpKernel\Kernel::VERSION;')
+installed_commit=$(php -r '
+    $lock = json_decode(file_get_contents("composer.lock"), true, 512, JSON_THROW_ON_ERROR);
+    foreach ($lock["packages"] as $package) {
+        if ($package["name"] === "symfony/framework-bundle") {
+            echo $package["source"]["reference"];
+            exit;
+        }
+    }
+    exit(1);
+')
+test "$installed_version" = "$FRAMEWORK_VERSION"
+test "$installed_commit" = "$FRAMEWORK_COMMIT"
 
-# start mysql server
+install -m 0644 /usr/local/src/symfony-app/HomeController.php \
+    "$WEBROOT/src/Controller/HomeController.php"
+rm -rf /usr/local/src/symfony-app
+
 service mysql start
+mysqladmin create "$NAME"
 
-# create symfony database & user
-mysqladmin create $NAME
-mysql --batch --execute "\
-    GRANT ALL PRIVILEGES ON $NAME.* TO $NAME@localhost IDENTIFIED BY '$DB_PASS'; \
-    FLUSH PRIVILEGES;"
+# Keep generated credentials out of the build trace. Errexit stays active.
+set +x
+DB_PASS=$(mcookie)
+APP_SECRET=$(mcookie)
+mysql --batch <<EOF
+CREATE USER '$NAME'@'localhost' IDENTIFIED BY '$DB_PASS';
+GRANT ALL PRIVILEGES ON $NAME.* TO '$NAME'@'localhost';
+USE $NAME;
+CREATE TABLE turnkey_status (
+    id INT PRIMARY KEY,
+    message VARCHAR(128) NOT NULL
+);
+INSERT INTO turnkey_status (id, message)
+VALUES (1, 'Database connectivity verified');
+FLUSH PRIVILEGES;
+EOF
+cat > "$WEBROOT/.env.local" <<EOF
+APP_ENV=prod
+APP_SECRET=$APP_SECRET
+DATABASE_URL="mysql://$NAME:$DB_PASS@127.0.0.1:3306/$NAME"
+EOF
+chmod 0640 "$WEBROOT/.env.local"
+chown root:www-data "$WEBROOT/.env.local"
+unset DB_PASS APP_SECRET
+set -x
 
-MARIADB_V=$(apt-cache policy mariadb-server | grep Candidate | sed "s|.* 1:\([0-9\.]*\)-.*|\1|")
-MYSQL_STR="mysql://$NAME:$DB_PASS@127.0.0.1:3306/$NAME?serverVersion=mariadb-$MARIADB_V"
-sed -i "\|^DATABASE_URL|s|=.*|=\"$MYSQL_STR\"|" $WEBROOT/.env
+install -d /usr/local/share/turnkey-symfony
+cat > /usr/local/share/turnkey-symfony/source <<EOF
+skeleton_version=$SKELETON_VERSION
+skeleton_commit=$SKELETON_COMMIT
+skeleton_sha256=$SKELETON_SHA256
+skeleton_url=$SKELETON_URL
+framework_version=$FRAMEWORK_VERSION
+framework_commit=$FRAMEWORK_COMMIT
+framework_tag=v$FRAMEWORK_VERSION
+framework_url=https://github.com/symfony/framework-bundle.git
+composer_lock_sha256=$(sha256sum composer.lock | awk '{print $1}')
+EOF
 
-# configure apache
 a2dissite 000-default
 a2ensite symfony
-a2enmod rewrite
 a2enmod headers
 
-# Give ownership of webroot to root but webserver ownership of var
-chown -R root:root $WEBROOT
-chown -R www-data:www-data $WEBROOT/var
+chown -R root:root "$WEBROOT"
+chown -R www-data:www-data "$WEBROOT/var"
+chown root:www-data "$WEBROOT/.env.local"
+runuser -u www-data -- php bin/console cache:clear --env=prod --no-debug
 
-# apply TurnKey branding to welcome page
-cd $WEBROOT
-git apply /usr/local/src/welcome.patch
-rm /usr/local/src/welcome.patch
-
-# stop mysql
 service mysql stop

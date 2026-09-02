@@ -3,7 +3,7 @@ turnkey-symfony-19.0 (1) turnkey; urgency=low
   * Rebase the appliance on Debian 13/Trixie.
 
   * Install the official Symfony 7.4 LTS skeleton and pin FrameworkBundle
-    v7.4.17 with verified source provenance.
+    v7.4.18 with verified source provenance.
 
   * Replace the vendor welcome patch with a small sample application that
     exercises framework routing and MariaDB through Doctrine DBAL.
